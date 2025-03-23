@@ -3,7 +3,7 @@ import { AlertTriangle } from "lucide-react";
 import Papa from "papaparse";
 import EventFilter from "./components/event-filter";
 
-const base_url = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+const base_url = process.env.NEXT_PUBLIC_BASE_URL || process.env.VERCEL_URL;
 
 async function getData() {
   const eventsFile = await fetch(`${base_url}/data/joined.csv`).then(

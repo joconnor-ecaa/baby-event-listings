@@ -1,13 +1,15 @@
-import Papa from "papaparse"
-import EventFilter from "./components/event-filter"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertTriangle } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertTriangle } from "lucide-react";
+import Papa from "papaparse";
+import EventFilter from "./components/event-filter";
+
+const base_url = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
 
 async function getData() {
-  const eventsFile = await fetch("https://storage.googleapis.com/tz-ml-public/timetable_parsing/events.csv").then(
+  const eventsFile = await fetch(`${base_url}/data/joined.csv`).then(
     (res) => res.text(),
   )
-  const venuesFile = await fetch("https://storage.googleapis.com/tz-ml-public/timetable_parsing/venues.csv").then(
+  const venuesFile = await fetch(`${base_url}/data/venues.csv`).then(
     (res) => res.text(),
   )
 

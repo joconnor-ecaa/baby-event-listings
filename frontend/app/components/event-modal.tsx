@@ -7,12 +7,15 @@ type Event = {
   day_of_week: string
   start_time: string
   end_time: string
+  name_venue: string
+  other_notes: string
 }
 
 type Venue = {
   name: string
   address: string
   phone_number: string
+  other_notes: string
 }
 
 type EventModalProps = {
@@ -54,7 +57,19 @@ export function EventModal({ event, venue, isOpen, onClose }: EventModalProps) {
                 <span className="font-bold">Phone:</span>
                 <span className="col-span-3">{venue.phone_number || "Not available"}</span>
               </div>
+              {venue.other_notes && (
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <span className="font-bold">Venue Notes:</span>
+                  <span className="col-span-3">{venue.other_notes}</span>
+                </div>
+              )}
             </>
+          )}
+          {event.other_notes && (
+            <div className="grid grid-cols-4 items-center gap-4">
+              <span className="font-bold">Event Notes:</span>
+              <span className="col-span-3">{event.other_notes}</span>
+            </div>
           )}
         </div>
       </DialogContent>

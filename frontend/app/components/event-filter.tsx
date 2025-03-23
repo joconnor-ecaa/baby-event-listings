@@ -1,25 +1,27 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { EventModal } from "./event-modal"
-import { Button } from "@/components/ui/button"
-import { MultiSelect, type Option } from "./multi-select"
 import { formatTime } from "@/lib/utils"
+import { useMemo, useState } from "react"
+import { EventModal } from "./event-modal"
+import { MultiSelect, type Option } from "./multi-select"
 
 type Event = {
   name: string
-  venue_name: string
+  name_venue: string
   day_of_week: string
   start_time: string
   end_time: string
+  other_notes: string
 }
 
 type Venue = {
   name: string
   address: string
   phone_number: string
+  other_notes: string
 }
 
 export default function EventFilter({ events, venues }: { events: Event[]; venues: Venue[] }) {
@@ -127,7 +129,7 @@ export default function EventFilter({ events, venues }: { events: Event[]; venue
           {filteredEvents.map((event, index) => (
             <TableRow key={index} className="cursor-pointer hover:bg-gray-100" onClick={() => handleEventClick(event)}>
               <TableCell>{event.name || "Unnamed Event"}</TableCell>
-              <TableCell>{event.venue_name || "Unknown"}</TableCell>
+              <TableCell>{event.name_venue || "Unknown"}</TableCell>
               <TableCell>{event.day_of_week || "No Day"}</TableCell>
               <TableCell>{formatTime(event.start_time)}</TableCell>
               <TableCell>{formatTime(event.end_time)}</TableCell>

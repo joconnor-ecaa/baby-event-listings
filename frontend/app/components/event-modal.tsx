@@ -1,22 +1,6 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { formatTime } from "@/lib/utils"
-
-type Event = {
-  name: string
-  venue_name: string
-  day_of_week: string
-  start_time: string
-  end_time: string
-  name_venue: string
-  other_notes: string
-}
-
-type Venue = {
-  name: string
-  address: string
-  phone_number: string
-  other_notes: string
-}
+import { Event, Venue } from "../types/events"
 
 type EventModalProps = {
   event: Event
@@ -35,7 +19,7 @@ export function EventModal({ event, venue, isOpen, onClose }: EventModalProps) {
         <div className="grid gap-4 py-4">
           <div className="grid grid-cols-4 items-center gap-4">
             <span className="font-bold">Venue:</span>
-            <span className="col-span-3">{event.venue_name || "Unknown"}</span>
+            <span className="col-span-3">{event.name_venue || "Unknown"}</span>
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <span className="font-bold">Day:</span>

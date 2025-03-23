@@ -5,29 +5,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { formatTime } from "@/lib/utils"
 import { useMemo, useState } from "react"
+import { Event, Venue } from "../types/events"
 import { EventModal } from "./event-modal"
 import { MultiSelect, type Option } from "./multi-select"
 
-type Event = {
-  name: string
-  name_venue: string
-  day_of_week: string
-  start_time: string
-  end_time: string
-  other_notes: string
-}
-
-type Venue = {
-  name: string
-  address: string
-  phone_number: string
-  other_notes: string
-}
+const ITEMS_PER_PAGE = 50
 
 export default function EventFilter({ events, venues }: { events: Event[]; venues: Venue[] }) {
   const [selectedVenues, setSelectedVenues] = useState<string[]>([])
   const [selectedDay, setSelectedDay] = useState<string>("all")
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
 
   const uniqueDays = useMemo(
     () => Array.from(new Set(events.map((event) => event.day_of_week))).filter(Boolean),
@@ -44,12 +32,28 @@ export default function EventFilter({ events, venues }: { events: Event[]; venue
 
   const filteredEvents = useMemo(
     () =>
-      events.filter(
-        (event) =>
-          (selectedVenues.length === 0 || selectedVenues.includes(event.venue_name)) &&
-          (selectedDay === "all" || event.day_of_week === selectedDay),
-      ),
+      events
+        .filter(
+          (event) =>
+            (selectedVenues.length === 0 || selectedVenues.includes(event.name_venue)) &&
+            (selectedDay === "all" || event.day_of_week === selectedDay),
+        )
+        .sort((a, b) => {
+          // Convert time strings to comparable values (minutes since midnight)
+          const getMinutes = (time: string | null) => {
+            if (!time) return Infinity // Events without start time go to the end
+            const [hours, minutes] = time.split(':').map(Number)
+            return hours * 60 + minutes
+          }
+          return getMinutes(a.start_time) - getMinutes(b.start_time)
+        }),
     [events, selectedVenues, selectedDay],
+  )
+
+  const totalPages = Math.ceil(filteredEvents.length / ITEMS_PER_PAGE)
+  const paginatedEvents = useMemo(
+    () => filteredEvents.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE),
+    [filteredEvents, currentPage],
   )
 
   const handleEventClick = (event: Event) => {
@@ -62,6 +66,7 @@ export default function EventFilter({ events, venues }: { events: Event[]; venue
 
   const handleDaySelect = (day: string) => {
     setSelectedDay(day)
+    setCurrentPage(1) // Reset to first page when changing filters
   }
 
   const getDayOfWeek = (offset: number) => {
@@ -79,7 +84,10 @@ export default function EventFilter({ events, venues }: { events: Event[]; venue
           <MultiSelect
             options={venueOptions}
             selected={selectedVenues}
-            onChange={setSelectedVenues}
+            onChange={(venues) => {
+              setSelectedVenues(venues)
+              setCurrentPage(1) // Reset to first page when changing filters
+            }}
             placeholder="Select venues..."
           />
         </div>
@@ -126,7 +134,7 @@ export default function EventFilter({ events, venues }: { events: Event[]; venue
           </TableRow>
         </TableHeader>
         <TableBody>
-          {filteredEvents.map((event, index) => (
+          {paginatedEvents.map((event, index) => (
             <TableRow key={index} className="cursor-pointer hover:bg-gray-100" onClick={() => handleEventClick(event)}>
               <TableCell>{event.name || "Unnamed Event"}</TableCell>
               <TableCell>{event.name_venue || "Unknown"}</TableCell>
@@ -138,10 +146,32 @@ export default function EventFilter({ events, venues }: { events: Event[]; venue
         </TableBody>
       </Table>
 
+      {totalPages > 1 && (
+        <div className="flex justify-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+            disabled={currentPage === 1}
+          >
+            Previous
+          </Button>
+          <span className="flex items-center px-4">
+            Page {currentPage} of {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+            disabled={currentPage === totalPages}
+          >
+            Next
+          </Button>
+        </div>
+      )}
+
       {selectedEvent && (
         <EventModal
           event={selectedEvent}
-          venue={venues.find((v) => v.name === selectedEvent.venue_name)}
+          venue={venues.find((v) => v.name === selectedEvent.name_venue)}
           isOpen={!!selectedEvent}
           onClose={handleCloseModal}
         />

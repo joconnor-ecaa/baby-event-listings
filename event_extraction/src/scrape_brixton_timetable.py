@@ -4,12 +4,12 @@ from enum import Enum
 from pathlib import Path
 
 import fitz
-import llm_parsing
 import pandas as pd
-import parse_timetable_image
 import requests
 from google import genai
 from pydantic import BaseModel
+
+MODEL_NAME = "gemini-2.0-flash"
 
 event_extraction_prompt = """Extract all of the events listed in the input.
 Use UTC (+00:00) in the time fields. Use the 24-hour clock. There are AM/PM headers in the input to help you convert.
@@ -73,7 +73,7 @@ def page_to_text(page: fitz.Page):
     image = genai.types.Part.from_bytes(data=image_bytes, mime_type="image/png")
 
     response = client.models.generate_content(
-        model="gemini-2.0-flash",
+        model=MODEL_NAME,
         contents=[image, OCR_PROMPT],
     )
 
@@ -141,7 +141,7 @@ if __name__ == "__main__":
         local_file = download_pdf(url=pdf)
         with fitz.open(local_file) as doc:
             num_pages = len(doc)
-            for page in doc:
+            for page in doc[2:]:
                 image = page.get_pixmap(dpi=150)
                 pdf_name = pdf.split("/")[-1].split(".")[0]
                 image.save(f"data/images/{pdf_name}.png")
@@ -151,21 +151,20 @@ if __name__ == "__main__":
                     system_prompt="Extract all venues mentioned in the text.",
                     text=text,
                     output_class=VenueList,
-                    model_name="gemini-2.0-flash",
+                    model_name=MODEL_NAME,
                 )
                 print(venues)
                 events: EventList = structured_extraction(
                     system_prompt=event_extraction_prompt,
                     text=text,
                     output_class=EventList,
-                    model_name="gemini-2.0-flash",
+                    model_name=MODEL_NAME,
                 )
                 print(events)
                 all_venues.append(pd.json_normalize(venues.model_dump()["venues"]))
                 all_events.append(pd.json_normalize(events.model_dump()["events"]))
 
         Path(local_file).rename(f"data/pdfs/{pdf.split('/')[-1]}")
-        break
 
     all_events = pd.concat(all_events)
     all_events.to_csv("data/events.csv", index=False)

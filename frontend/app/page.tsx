@@ -4,9 +4,15 @@ import venuesData from '@/data/venues';
 import { AlertTriangle } from "lucide-react";
 import EventFilter from "./components/event-filter";
 
-
 export default async function Home() {
-  const { events, venues } = { events: eventsData, venues: venuesData }
+  const events = eventsData.map((event, index) => ({
+    ...event,
+    document_id: `event-${index}`,
+  }));
+  const venues = venuesData.map((venue, index) => ({
+    ...venue,
+    document_id: `venue-${index}`,
+  }));
 
   return (
     <main className="container mx-auto p-4">

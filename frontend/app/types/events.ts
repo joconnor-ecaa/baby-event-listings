@@ -6,14 +6,14 @@ export type Event = {
   name_venue: string
   other_notes: string | null
   document_id: string
-  address: string
+  address: string | null
   phone_number: string | null
   other_notes_venue: string | null
 }
 
 export type Venue = {
   name: string
-  address: string
+  address: string | null
   phone_number: string | null
   other_notes: string | null
   document_id: string

@@ -1,27 +1,24 @@
-from pathlib import Path
-
 import pandas as pd
 import typer
-from loguru import logger
 
 
 @typer.run
-def main(input_dir: str):
-    input_dir = Path(input_dir)
-    events = pd.concat([pd.read_csv(csv_path) for csv_path in input_dir.glob('*_events.csv')])
-    num_events = len(events)
-    events = events.drop_duplicates(subset=['name', 'day_of_week', 'start_time', 'end_time'])
-    num_events_deduplicated = len(events)
-    logger.info(f"Deduplicated {num_events - num_events_deduplicated} events")
+def main():
+    events = pd.read_csv("data/events.csv")
+    venues = pd.read_csv("data/venues.csv")
+    venues = venues.drop_duplicates(subset=["name"])
+    events = events.drop_duplicates(
+        subset=["name", "day_of_week", "start_time", "end_time"]
+    )
+    j = pd.merge(
+        events, venues, left_on="venue_name", right_on="name", suffixes=("", "_venue")
+    )
 
-    venues = pd.concat([pd.read_csv(csv_path) for csv_path in input_dir.glob('*_venues.csv')])
-    num_venues = len(venues)
-    venues = venues.drop_duplicates(subset=['name'])
-    num_venues_deduplicated = len(venues)
-    logger.info(f"Deduplicated {num_venues - num_venues_deduplicated} venues")
+    # If you want TypeScript types, you can save as .ts files instead
+    with open("../frontend/data/events.ts", "w") as f:
+        f.write(f'const events = {j.to_json(orient="records", indent=2)}\n\n')
+        f.write("export default events;")
 
-    print(events.describe())
-    print(venues.describe())
-
-    events.to_csv('gs://tz-ml-public/timetable_parsing/events.csv', index=False)
-    venues.to_csv('gs://tz-ml-public/timetable_parsing/venues.csv', index=False)
+    with open("../frontend/data/venues.ts", "w") as f:
+        f.write(f'const venues = {venues.to_json(orient="records", indent=2)}\n\n')
+        f.write("export default venues;")

@@ -1,4 +1,6 @@
 import tempfile
+from datetime import time
+from enum import Enum
 from pathlib import Path
 
 import fitz
@@ -6,6 +8,20 @@ import llm_parsing
 import pandas as pd
 import parse_timetable_image
 import requests
+from google import genai
+from pydantic import BaseModel
+
+event_extraction_prompt = """Extract all of the events listed in the input.
+Use UTC (+00:00) in the time fields. Use the 24-hour clock. There are AM/PM headers in the input to help you convert.
+Extract all of the events and venues listed in the input.
+Some events repeat on multiple days, or multiple times per day. Extract everything.
+Use only the information explicitly provided in the input."""
+
+OCR_PROMPT = """
+Convert this image to markdown as accurately as possible. Pay very close attention to the text: transcription mistakes are very costly.
+
+Do not include any preamble, comments or other text in your response.
+"""
 
 
 def download_pdf(url):
@@ -48,6 +64,71 @@ def find_pdf_links(url):
     return pdf_links
 
 
+def page_to_text(page: fitz.Page):
+    page_image = page.get_pixmap(dpi=150)
+    image_bytes = page_image.tobytes(output="png")
+
+    client = genai.Client(vertexai=True, project="tz-ml-dev", location="us-central1")
+
+    image = genai.types.Part.from_bytes(data=image_bytes, mime_type="image/png")
+
+    response = client.models.generate_content(
+        model="gemini-2.0-flash",
+        contents=[image, OCR_PROMPT],
+    )
+
+    return response.text
+
+
+class DayEnum(str, Enum):
+    MONDAY = "Monday"
+    TUESDAY = "Tuesday"
+    WEDNESDAY = "Wednesday"
+    THURSDAY = "Thursday"
+    FRIDAY = "Friday"
+    SATURDAY = "Saturday"
+    SUNDAY = "Sunday"
+
+
+class Event(BaseModel):
+    venue_name: str
+    name: str
+    day_of_week: DayEnum
+    start_time: time | None
+    end_time: time | None
+    other_notes: str | None
+
+
+class Venue(BaseModel):
+    name: str
+    address: str | None
+    phone_number: str | None
+    other_notes: str | None
+
+
+class VenueList(BaseModel):
+    venues: list[Venue]
+
+
+class EventList(BaseModel):
+    events: list[Event]
+
+
+def structured_extraction(system_prompt, text, output_class, model_name):
+    client = genai.Client(vertexai=True, project="tz-ml-dev", location="us-central1")
+
+    response = client.models.generate_content(
+        model=model_name,
+        contents=[system_prompt, text],
+        config=genai.types.GenerateContentConfig(
+            response_mime_type="application/json",
+            response_schema=output_class,
+        ),
+    )
+
+    return output_class.model_validate_json(response.text)
+
+
 if __name__ == "__main__":
 
     pdfs = find_pdf_links(
@@ -60,40 +141,33 @@ if __name__ == "__main__":
         local_file = download_pdf(url=pdf)
         with fitz.open(local_file) as doc:
             num_pages = len(doc)
-            last_page = doc[-1]
-            for i, table in enumerate(last_page.find_tables()):
-                table.to_pandas().to_csv(
-                    f"data/tables/{pdf.split('/')[-1]}_{i}.csv",
-                    index=False,
+            for page in doc:
+                image = page.get_pixmap(dpi=150)
+                pdf_name = pdf.split("/")[-1].split(".")[0]
+                image.save(f"data/images/{pdf_name}.png")
+                text = page_to_text(page)
+                print(text)
+                venues: VenueList = structured_extraction(
+                    system_prompt="Extract all venues mentioned in the text.",
+                    text=text,
+                    output_class=VenueList,
+                    model_name="gemini-2.0-flash",
                 )
-            image = last_page.get_pixmap(dpi=150)
-            pdf_name = pdf.split("/")[-1].split(".")[0]
-            image.save(f"data/images/{pdf_name}.png")
-            parse_timetable_image.main(
-                image_path=f"data/images/{pdf_name}.png",
-                output_path=f"data/colour_tables/{pdf_name}.csv",
-            )
-            llm_parsing.main(
-                csv_path=f"data/colour_tables/{pdf_name}.csv",
-                output_dir=f"data/structured_tables/",
-            )
-            venues = pd.read_csv(
-                f"data/structured_tables/{pdf_name}_venues.csv"
-            ).assign(document_id=pdf_name)
-            all_venues.append(venues)
-            events = pd.read_csv(
-                f"data/structured_tables/{pdf_name}_events.csv"
-            ).assign(document_id=pdf_name)
-            all_events.append(events)
+                print(venues)
+                events: EventList = structured_extraction(
+                    system_prompt=event_extraction_prompt,
+                    text=text,
+                    output_class=EventList,
+                    model_name="gemini-2.0-flash",
+                )
+                print(events)
+                all_venues.append(pd.json_normalize(venues.model_dump()["venues"]))
+                all_events.append(pd.json_normalize(events.model_dump()["events"]))
 
         Path(local_file).rename(f"data/pdfs/{pdf.split('/')[-1]}")
+        break
 
     all_events = pd.concat(all_events)
     all_events.to_csv("data/events.csv", index=False)
     all_venues = pd.concat(all_venues)
     all_venues.to_csv("data/venues.csv", index=False)
-
-    joined = all_events.merge(
-        all_venues, on=["document_id", "color"], suffixes=("", "_venue")
-    )
-    joined.to_csv("data/joined.csv", index=False)

@@ -10,7 +10,7 @@ export default async function Home() {
 
   return (
     <main className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Better Start Events: Spring 2025</h1>
+      <h1 className="text-2xl font-bold mb-4">Better Start Events: Summer 2025</h1>
       <Alert variant="default" className="mb-4">
         <AlertTriangle className="h-4 w-4" />
         <AlertTitle>Disclaimer</AlertTitle>

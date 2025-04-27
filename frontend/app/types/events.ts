@@ -17,5 +17,4 @@ export type Venue = {
   phone_number: string | null
   other_notes: string | null
   document_id: string
-  color: string
 } 
